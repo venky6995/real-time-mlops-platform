@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 import pandas as pd
+
 from src.serving.schemas import ChurnRequest, ChurnResponse
 from src.registry.mlflow_utils import load_production_model
 from src.monitoring.metrics import REQUEST_COUNT, REQUEST_LATENCY
@@ -14,17 +15,16 @@ def predict(req: ChurnRequest):
     with REQUEST_LATENCY.time():
         REQUEST_COUNT.inc()
 
-        # pydantic v2: model_dump(); v1: dict()
+        # pydantic v2 uses model_dump()
         try:
             payload = req.model_dump()
         except AttributeError:
             payload = req.dict()
 
         data = pd.DataFrame([payload])
-
         proba_vector = model.predict_proba(data)[0]
-        # If binary classifier with classes [0, 1], proba for churn=1 is column 1
-        if proba_vector.shape[0] == 1:
+        # Handle both 1-column and 2-column probabilities
+        if len(proba_vector) == 1:
             churn_proba = float(proba_vector[0])
         else:
             churn_proba = float(proba_vector[1])
