@@ -1,0 +1,65 @@
+# .github/workflows/ci_cd.yml
+name: CI-CD
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+
+jobs:
+  build-test-deploy:
+    runs-on: ubuntu-latest
+
+    env:
+      GCP_PROJECT_ID: mlops-telco-m24de3084
+      REGION: asia-south1
+      REPO_NAME: mlops-repo
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install pytest
+
+      - name: Run tests
+        run: pytest
+
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker $REGION-docker.pkg.dev
+
+      - name: Build & push MLflow server image
+        run: |
+          IMAGE_MLFLOW=$REGION-docker.pkg.dev/$GCP_PROJECT_ID/$REPO_NAME/mlflow-server:latest
+          docker build -t $IMAGE_MLFLOW -f docker/Dockerfile.mlflow .
+          docker push $IMAGE_MLFLOW
+
+      - name: Build & push FastAPI app image
+        run: |
+          IMAGE_APP=$REGION-docker.pkg.dev/$GCP_PROJECT_ID/$REPO_NAME/fastapi-app:latest
+          docker build -t $IMAGE_APP -f docker/Dockerfile.app .
+          docker push $IMAGE_APP
+
+      - name: Deploy to GCE VM via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VM_HOST }}
+          username: ${{ secrets.VM_USER }}
+          key: ${{ secrets.VM_SSH_KEY }}
+          script: |
+            cd real-time-mlops-platform/docker || exit 1
+            git pull
+            docker-compose pull
+            docker-compose up -d
