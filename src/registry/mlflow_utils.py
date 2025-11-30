@@ -4,19 +4,19 @@ from mlflow.exceptions import MlflowException
 from sklearn.dummy import DummyClassifier
 import numpy as np
 
-MLFLOW_TRACKING_URI = os.getenv("MLFLOW_TRACKING_URI", "http://mlflow-server:5000")
+MLFLOW_TRACKING_URI = os.getenv("MLFLOW_TRACKING_URI")  # may be None
 MODEL_NAME = os.getenv("MODEL_NAME", "telco_churn_model")
+MLFLOW_OFFLINE = os.getenv("MLFLOW_OFFLINE", "false").lower() == "true"
 
 
 def _make_dummy_model():
     """
     Fallback model for local dev/tests when MLflow is not available.
-    Always predicts 'no churn' (0).
+    Binary classifier with two classes [0, 1] so predict_proba has 2 columns.
     """
-    dummy = DummyClassifier(strategy="most_frequent")
-    # train on fake data just so predict_proba works
+    dummy = DummyClassifier(strategy="prior", random_state=42)
     X = np.array([[0], [1]])
-    y = np.array([0, 0])
+    y = np.array([0, 1])  # has both classes 0 and 1
     dummy.fit(X, y)
     return dummy, "dummy-local-model"
 
@@ -26,22 +26,18 @@ def load_production_model():
     Loads the latest production model from MLflow.
     If MLFLOW_OFFLINE=true, returns a dummy model for local testing.
     """
-    # 1) Offline mode for local tests
-    if os.getenv("MLFLOW_OFFLINE", "false").lower() == "true":
+    # 1) Offline mode for tests / local dev
+    if MLFLOW_OFFLINE:
         return _make_dummy_model()
 
     # 2) Online MLflow mode
-    if not MLFLOW_TRACKING_URI:
-        raise RuntimeError("MLFLOW_TRACKING_URI is not set.")
-
-    mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
+    tracking_uri = MLFLOW_TRACKING_URI or "http://mlflow-server:5000"
+    mlflow.set_tracking_uri(tracking_uri)
     client = mlflow.tracking.MlflowClient()
 
     try:
-        # Try to load Production stage model
         prod_versions = client.get_latest_versions(MODEL_NAME, stages=["Production"])
         if not prod_versions:
-            # No production model yet, fall back to latest version if exists
             all_versions = client.get_latest_versions(MODEL_NAME)
             if not all_versions:
                 raise RuntimeError(
@@ -55,7 +51,6 @@ def load_production_model():
         return model, model_uri
 
     except MlflowException as e:
-        # For dev, you can either raise or fallback
         raise RuntimeError(
             f"Failed to load model '{MODEL_NAME}' from MLflow: {e}"
         ) from e

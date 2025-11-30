@@ -1,0 +1,16 @@
+creation_timestamp: 1764525996311
+current_stage: None
+deployment_job_state: null
+description: null
+last_updated_timestamp: 1764525996311
+model_id: m-6084a9898688417897467c402b217f05
+name: telco_churn_model
+run_id: 1c54344912864ff4951968947f1a862c
+run_link: null
+source: models:/m-6084a9898688417897467c402b217f05
+status: READY
+status_message: null
+storage_location: file:///Users/dvenkatesh/Downloads/DME2138 Doddi Venkatesh/Learning/PG/MTech/Major
+  Project/git_repo/real-time-mlops-platform/mlruns/943978650289628681/models/m-6084a9898688417897467c402b217f05/artifacts
+user_id: null
+version: 1

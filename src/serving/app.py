@@ -8,19 +8,28 @@ app = FastAPI(title="Telco Churn Real-Time API")
 
 model, model_uri = load_production_model()
 
+
 @app.post("/predict", response_model=ChurnResponse)
 def predict(req: ChurnRequest):
     with REQUEST_LATENCY.time():
         REQUEST_COUNT.inc()
 
-        data = pd.DataFrame([req.dict()])
-        proba = model.predict_proba(data)[:, 1][0]
-        return ChurnResponse(churn_probability=float(proba), model_version=model_uri)
+        # pydantic v2: model_dump(); v1: dict()
+        try:
+            payload = req.model_dump()
+        except AttributeError:
+            payload = req.dict()
 
+        data = pd.DataFrame([payload])
 
-from fastapi import Response
-from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
+        proba_vector = model.predict_proba(data)[0]
+        # If binary classifier with classes [0, 1], proba for churn=1 is column 1
+        if proba_vector.shape[0] == 1:
+            churn_proba = float(proba_vector[0])
+        else:
+            churn_proba = float(proba_vector[1])
 
-@app.get("/metrics")
-def metrics():
-    return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
+        return ChurnResponse(
+            churn_probability=churn_proba,
+            model_version=model_uri,
+        )

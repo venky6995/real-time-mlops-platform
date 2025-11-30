@@ -32,7 +32,7 @@ jobs:
           pip install pytest
 
       - name: Run tests
-        run: PYTHONPATH=${{ github.workspace }} pytest
+        run: pytest
 
       - name: Authenticate to GCP
         uses: google-github-actions/auth@v2

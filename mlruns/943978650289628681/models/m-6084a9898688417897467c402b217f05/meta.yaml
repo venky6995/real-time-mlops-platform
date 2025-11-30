@@ -1,0 +1,11 @@
+artifact_location: file:///Users/dvenkatesh/Downloads/DME2138 Doddi Venkatesh/Learning/PG/MTech/Major
+  Project/git_repo/real-time-mlops-platform/mlruns/943978650289628681/models/m-6084a9898688417897467c402b217f05/artifacts
+creation_timestamp: 1764525994744
+experiment_id: '943978650289628681'
+last_updated_timestamp: 1764525996307
+model_id: m-6084a9898688417897467c402b217f05
+model_type: null
+name: model
+source_run_id: 1c54344912864ff4951968947f1a862c
+status: 2
+status_message: null
