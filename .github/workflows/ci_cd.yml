@@ -63,5 +63,6 @@ jobs:
           script: |
             cd real-time-mlops-platform/docker || exit 1
             git pull
+            docker-compose down --remove-orphans || true
             docker-compose pull
             docker-compose up -d
