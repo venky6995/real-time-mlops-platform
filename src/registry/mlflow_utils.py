@@ -28,10 +28,13 @@ def _make_dummy_model():
 def load_production_model():
     """
     Loads the latest production model from MLflow.
+
     - If MLFLOW_OFFLINE=true => dummy model
-    - If MLflow is unreachable or no model found => dummy model
+    - If MLflow is unreachable or returns any error (403, etc.) => dummy model
+
+    This function MUST NOT crash the FastAPI app.
     """
-    # 1) Offline mode (used in CI/tests or if you explicitly set it)
+    # 1) Offline mode (CI/tests or forced local)
     if MLFLOW_OFFLINE:
         logger.warning("MLFLOW_OFFLINE=true, using dummy local model.")
         return _make_dummy_model()
@@ -43,11 +46,11 @@ def load_production_model():
         mlflow.set_tracking_uri(tracking_uri)
         client = mlflow.tracking.MlflowClient()
 
-        # Try Production stage first
+        # Prefer Production stage
         try:
             prod_versions = client.get_latest_versions(MODEL_NAME, stages=["Production"])
         except TypeError:
-            # Some MLflow versions handle this slightly differently
+            # Some MLflow versions treat stages arg differently
             prod_versions = []
 
         if prod_versions:
@@ -66,7 +69,7 @@ def load_production_model():
         return model, model_uri
 
     except (MlflowException, Exception) as e:
-        # Very important: DO NOT crash the app, fall back to dummy
+        # ✅ IMPORTANT: Do NOT raise here, just log & fall back
         logger.warning(
             "Failed to load model '%s' from MLflow (tracking_uri=%s). "
             "Falling back to dummy model. Error: %s",

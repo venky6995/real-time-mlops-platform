@@ -7,6 +7,7 @@ from src.monitoring.metrics import REQUEST_COUNT, REQUEST_LATENCY
 
 app = FastAPI(title="Telco Churn Real-Time API")
 
+# Will now always return something, never crash
 model, model_uri = load_production_model()
 
 
@@ -15,7 +16,6 @@ def predict(req: ChurnRequest):
     with REQUEST_LATENCY.time():
         REQUEST_COUNT.inc()
 
-        # pydantic v2 uses model_dump()
         try:
             payload = req.model_dump()
         except AttributeError:
@@ -23,7 +23,7 @@ def predict(req: ChurnRequest):
 
         data = pd.DataFrame([payload])
         proba_vector = model.predict_proba(data)[0]
-        # Handle both 1-column and 2-column probabilities
+
         if len(proba_vector) == 1:
             churn_proba = float(proba_vector[0])
         else:
