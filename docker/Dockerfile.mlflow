@@ -1,0 +1,5 @@
+FROM python:3.11-slim
+WORKDIR /app
+RUN pip install mlflow psycopg2-binary google-cloud-storage
+EXPOSE 5000
+CMD ["bash", "-c", "mlflow --help"]
