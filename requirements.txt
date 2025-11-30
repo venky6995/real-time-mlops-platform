@@ -1,0 +1,17 @@
+fastapi
+uvicorn
+pydantic
+
+pandas
+numpy
+scikit-learn
+
+mlflow
+psycopg2-binary
+google-cloud-storage
+
+evidently
+prometheus-client
+
+pytest
+python-dotenv

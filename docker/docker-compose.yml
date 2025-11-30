@@ -1,7 +1,10 @@
+# docker/docker-compose.yml
 version: "3.8"
+
 services:
   postgres-mlflow:
     image: postgres:15
+    container_name: postgres-mlflow
     environment:
       POSTGRES_USER: mlflow
       POSTGRES_PASSWORD: mlflow
@@ -11,23 +14,54 @@ services:
     restart: always
 
   mlflow-server:
-    image: ghcr.io/<your-username>/mlflow-server:latest
+    image: asia-south1-docker.pkg.dev/mlops-telco-m24de3084/mlops-repo/mlflow-server:latest
+    container_name: mlflow-server
     depends_on:
       - postgres-mlflow
     environment:
       MLFLOW_BACKEND_STORE_URI: postgresql://mlflow:mlflow@postgres-mlflow:5432/mlflowdb
-      MLFLOW_ARTIFACT_ROOT: gs://telco-churn-data-<id>/mlflow_artifacts
+      MLFLOW_ARTIFACT_ROOT: gs://telco-churn-data-m24de3084/mlflow_artifacts
       GOOGLE_APPLICATION_CREDENTIALS: /secrets/gcp-key.json
     volumes:
       - /secrets:/secrets:ro
     ports:
       - "5000:5000"
-    command: >
-      mlflow server
-      --backend-store-uri ${MLFLOW_BACKEND_STORE_URI}
-      --default-artifact-root ${MLFLOW_ARTIFACT_ROOT}
-      --host 0.0.0.0
-      --port 5000
+    restart: always
+
+  fastapi-app:
+    image: asia-south1-docker.pkg.dev/mlops-telco-m24de3084/mlops-repo/fastapi-app:latest
+    container_name: fastapi-app
+    depends_on:
+      - mlflow-server
+    environment:
+      MLFLOW_TRACKING_URI: http://mlflow-server:5000
+      MODEL_NAME: telco_churn_model
+      GOOGLE_APPLICATION_CREDENTIALS: /secrets/gcp-key.json
+    volumes:
+      - /secrets:/secrets:ro
+    ports:
+      - "8000:8000"
+    restart: always
+
+  prometheus:
+    image: prom/prometheus
+    container_name: prometheus
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+    depends_on:
+      - fastapi-app
+    restart: always
+
+  grafana:
+    image: grafana/grafana
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+    restart: always
 
 volumes:
   mlflow_db_data:
