@@ -1,21 +1,32 @@
 from fastapi import FastAPI
 import pandas as pd
-from prometheus_client import make_asgi_app, Counter, Histogram
 
+# Use a dedicated CollectorRegistry to avoid duplicate registration during tests
+from prometheus_client import CollectorRegistry, make_asgi_app, Counter, Histogram
 
 from src.serving.schemas import ChurnRequest, ChurnResponse
 from src.registry.mlflow_utils import load_production_model
-from src.monitoring.metrics import REQUEST_COUNT, REQUEST_LATENCY
 
 app = FastAPI(title="Telco Churn Real-Time API")
 
-# create your metrics (names used in your repo may vary)
-REQUEST_COUNT = Counter('churn_requests_total', 'Total prediction requests')
-REQUEST_LATENCY = Histogram('churn_request_latency_seconds', 'Request latency')
+# Create a dedicated registry for this FastAPI app to prevent duplicate timeseries
+PROM_REGISTRY = CollectorRegistry()
 
+# Create metrics attached to the dedicated registry (prevents duplicate registration issues)
+REQUEST_COUNT = Counter(
+    'churn_requests_total',
+    'Total prediction requests',
+    registry=PROM_REGISTRY
+)
 
-# mount the prometheus ASGI app at /metrics
-app.mount("/metrics", make_asgi_app())
+REQUEST_LATENCY = Histogram(
+    'churn_request_latency_seconds',
+    'Request latency',
+    registry=PROM_REGISTRY
+)
+
+# Mount the Prometheus ASGI app using our registry on /metrics
+app.mount("/metrics", make_asgi_app(registry=PROM_REGISTRY))
 
 # Will now always return something, never crash
 model, model_uri = load_production_model()
